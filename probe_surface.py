@@ -32,49 +32,70 @@ converged = False
 
 # get a serial device and wake up the grbl, by sending it some enters
 with Communicate(args.device, args.speed, timeout=args.timeout, debug=args.debug, quiet=args.quiet) as serial:
+    # wait for the arduino to be setup
     time.sleep(10)
+    # set absolut coords
     command = "G90"
     try:
         serial.run(command)
     except KeyboardInterrupt:
         puts(colored.red('Emergency Feed Hold.  Enter "~" to continue'))
         serial.run('!\n?')
-
+    # set standard units
     command = "G20"
     try:
         serial.run(command)
     except KeyboardInterrupt:
         puts(colored.red('Emergency Feed Hold.  Enter "~" to continue'))
         serial.run('!\n?')
-
+    # get an index couter for storing the data
     num_x = -1
+    # loop over X postions
     for X in arange(0, X_MAX+X_STEP/2.0, X_STEP):
+        # increment the x axis index couter
         num_x=num_x+1
+        # get an increment counter for the y axis also
         num_y=-1
+        # loop over Y positions
         for Y in arange(0, Y_MAX+Y_STEP/2.0, Y_STEP):
+            # increment the y axis counter
             num_y=num_y+1
+            # inform the user of the surrent move
             puts(colored.yellow("going to x:{:.4f} and y:{:.4f}".format(X,Y)))
-
+            # make  command to go to the next coordinate
             command = "G0 X{:.4f} Y{:.4f} Z{:.4f}".format(X,Y,HIGH_Z)
             if DEBUG_VERBOSE:
                 print command
+            # try to run the command
             try:
                 serial.run(command)
+            # allow for keyboard interupts
             except KeyboardInterrupt:
                 puts(colored.red('Emergency Feed Hold.  Enter "~" to continue'))
                 serial.run('!\n?')
-
+            # construct a probe command string
             command = "G38.2 Z{:.4f} F{:.4f}".format(LOW_Z,PROBE_FEED_RATE)
+            # try to run this prob command
             try:
                 serial.run(command)
+            # allow for keyboard interrupts
             except KeyboardInterrupt:
                 puts(colored.red('Emergency Feed Hold.  Enter "~" to continue'))
                 serial.run('!\n?')
 
+            ##################################
+            ### DETERMINE CONVERGANCE OF PROBE
+            ##################################
+
+            # converged boolean defaults to false during the begining of each probe cycle
             converged = False
+            # lock into a while loop waiting for the convergence condition to be met
             while not converged:
+                # check for convergenceevery 2 seconds
                 time.sleep(2)
+                # qurey GRBL for a atatus update
                 status_report_string = serial.run('?',singleLine=True)
+                # parse the string from GRBL
                 current_status = GRBL_status().parse_grbl_status(status_report_string)
                 print ''
                 puts(colored.yellow(''.join('Z=' + '{:.4f}'.format((float(current_status.get_z()))))))
@@ -123,9 +144,9 @@ np.savetxt('probe_test.out', Surface_Data, delimiter=',',header='X_STEP:,{:.4f},
 
 puts(
 colored.green('''
-gCode finished streaming!''' +
+gCode finished streaming!''') +
 colored.red('''
-!!! WARNING: Please make sure that the buffer clears before finishing...''') )
+!!! WARNING: Please make sure that the buffer clears before finishing...'''))
 try:
   raw_input('<Press any key to finish>')
   raw_input('   Are you sure? Any key to REALLY exit.')

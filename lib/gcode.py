@@ -109,6 +109,44 @@ class GCode(list):
       # if len(out) > 0:
       #   self.append(out)
 
+
+  def my_parse(self):
+    ''' [INTERNAL] convert the readlines into a parsed set of commands and values'''
+    puts(colored.blue('Parsing gCode'))
+
+    comment = r'\(.*?\)'
+    whitespace = r'\s'
+    #command = r''.join([r'(?P<%s>%s(?P<%snum>-?\d+(?P<%sdecimal>\.?)\d*))?'%(c,c,c,c) for c in CMDS])
+    output = []
+    for i,line in enumerate(progress.bar(self.lines)):
+      if self.limit is not None and i > self.limit: break
+    # for i,line in enumerate(self.lines):
+      l = line.strip()
+      # find comments, save them, and then remove them
+      m = re.findall(comment,l)
+      l = re.sub(whitespace+'|'+comment,'',l).strip().upper()
+      # l = re.sub(whitespace,'',l).upper()
+
+      # Grab the commands
+      #c = re.match(command,l)
+
+      # output commands to a nice dict
+      out = {}
+      out['index'] = i
+      # out['line'] = line
+      if m: out['comment'] = m
+      for cmd in CMDS:
+        c = re.match(r'(?P<%s>%s(?P<%snum>-?\d+(?P<%sdecimal>\.?)\d*))?'%(cmd,cmd,cmd,cmd),l)
+        if c.group(cmd):
+          # either a float if '.' or a int
+          fcn = float if c.group(cmd+'decimal') else int
+          out[cmd] = fcn(c.group(cmd+'num'))
+          out['index'] = i
+      if len(out) > 0:
+        output.append(out)
+    return output
+
+
   def update(self,tool):
     '''Updates the gcode with a toolpath only does x,y'''
     UPDATE = 'xy'
